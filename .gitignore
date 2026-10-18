@@ -1,0 +1,52 @@
+﻿# Environment variables and secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Node.js
+node_modules/
+frontend/dist/
+frontend/build/
+npm-debug.log*
+
+# Java / Spring Boot
+backend/target/
+*.class
+*.jar
+*.war
+.gradle/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+
+# IDEs and editors
+.vscode/
+.idea/
+*.iml
+
+# Operating system
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Logs and temporary files
+*.log
+tmp/
+temp/
+
+# Test and coverage output
+coverage/
+htmlcov/
+.coverage
+
+# Local database and generated data
+*.sqlite
+*.sqlite3
+data/
