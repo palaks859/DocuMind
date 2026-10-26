@@ -1,4 +1,4 @@
-﻿# DocuMind — REST API Design
+# DocuMind - REST API Design
 
 **Status:** Proposed; not implemented
 **API prefix:** `/api/v1`
@@ -117,7 +117,7 @@ Workspace creation and membership changes must enforce role and ownership rules.
 | GET | `/workspaces/{workspaceId}/documents` | List workspace documents | Workspace member |
 | GET | `/workspaces/{workspaceId}/documents/{documentId}` | Get metadata and processing status | Workspace member |
 | GET | `/workspaces/{workspaceId}/documents/{documentId}/download` | Download the original file | Authorized member |
-| DELETE | `/workspaces/{workspaceId}/documents/{documentId}` | Request document deletion | Admin or Reviewer, subject to policy |
+| DELETE | `/workspaces/{workspaceId}/documents/{documentId}` | Request document deletion | Admin |
 | POST | `/workspaces/{workspaceId}/documents/{documentId}/reprocess` | Retry processing | Admin or Reviewer |
 
 ### Upload contract
@@ -154,12 +154,12 @@ Do not expose storage keys or internal filesystem locations in API responses. Fi
 
 | Method | Endpoint | Purpose | Access |
 |---|---|---|---|
-| POST | `/workspaces/{workspaceId}/chat/sessions` | Create a chat session | Admin or Reviewer |
-| GET | `/workspaces/{workspaceId}/chat/sessions` | List the user's sessions | Authorized member |
-| GET | `/workspaces/{workspaceId}/chat/sessions/{sessionId}` | Get session metadata | Session owner or authorized role |
-| DELETE | `/workspaces/{workspaceId}/chat/sessions/{sessionId}` | Delete a session | Owner or authorized admin |
-| GET | `/workspaces/{workspaceId}/chat/sessions/{sessionId}/messages` | Retrieve messages and citations | Authorized member |
-| POST | `/workspaces/{workspaceId}/chat/sessions/{sessionId}/messages` | Submit a question | Admin or Reviewer |
+| POST | `/workspaces/{workspaceId}/chat/sessions` | Create a chat session | Workspace member; session history is owner-only |
+| GET | `/workspaces/{workspaceId}/chat/sessions` | List the user's sessions | Session owner only; history listing is Later |
+| GET | `/workspaces/{workspaceId}/chat/sessions/{sessionId}` | Get session metadata | Session owner only |
+| DELETE | `/workspaces/{workspaceId}/chat/sessions/{sessionId}` | Delete a session | Session owner only |
+| GET | `/workspaces/{workspaceId}/chat/sessions/{sessionId}/messages` | Retrieve messages and citations | Session owner only |
+| POST | `/workspaces/{workspaceId}/chat/sessions/{sessionId}/messages` | Submit a question | Session owner only |
 
 Example question request:
 
@@ -240,14 +240,14 @@ Each extracted field should include its name, typed value, evidence, page number
 
 | Method | Endpoint | Purpose | Access |
 |---|---|---|---|
-| POST | `/workspaces/{workspaceId}/checklists` | Create a checklist | Admin or Reviewer |
+| POST | `/workspaces/{workspaceId}/checklists` | Create a checklist | Admin |
 | GET | `/workspaces/{workspaceId}/checklists` | List checklists | Workspace member |
 | GET | `/workspaces/{workspaceId}/checklists/{checklistId}` | Get checklist and criteria | Workspace member |
-| PATCH | `/workspaces/{workspaceId}/checklists/{checklistId}` | Update checklist metadata | Admin or Reviewer |
+| PATCH | `/workspaces/{workspaceId}/checklists/{checklistId}` | Update checklist metadata | Admin |
 | DELETE | `/workspaces/{workspaceId}/checklists/{checklistId}` | Delete a checklist | Admin, subject to retention rules |
-| POST | `/workspaces/{workspaceId}/checklists/{checklistId}/items` | Add a criterion | Admin or Reviewer |
-| PATCH | `/workspaces/{workspaceId}/checklists/{checklistId}/items/{itemId}` | Update a criterion | Admin or Reviewer |
-| DELETE | `/workspaces/{workspaceId}/checklists/{checklistId}/items/{itemId}` | Remove a criterion | Admin or Reviewer |
+| POST | `/workspaces/{workspaceId}/checklists/{checklistId}/items` | Add a criterion | Admin |
+| PATCH | `/workspaces/{workspaceId}/checklists/{checklistId}/items/{itemId}` | Update a criterion | Admin |
+| DELETE | `/workspaces/{workspaceId}/checklists/{checklistId}/items/{itemId}` | Remove a criterion | Admin |
 | POST | `/workspaces/{workspaceId}/documents/{documentId}/compliance-evaluations` | Start an evaluation | Admin or Reviewer |
 | GET | `/workspaces/{workspaceId}/documents/{documentId}/compliance-results` | Retrieve evaluation results | Authorized member |
 

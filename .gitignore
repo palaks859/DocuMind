@@ -50,3 +50,19 @@ htmlcov/
 *.sqlite
 *.sqlite3
 data/
+
+# Local environment secrets
+.env
+.env.*
+!.env.example
+
+# Local database data
+postgres-data/
+
+# Local command history
+powershell-session-history.txt
+
+# Temporary backup files
+*.bak
+*.backup
+*.backup.*

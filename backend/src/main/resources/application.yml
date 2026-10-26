@@ -1,0 +1,33 @@
+﻿
+spring:
+  application:
+    name: documind-backend
+
+  datasource:
+    url: jdbc:postgresql://localhost:5433/${POSTGRES_DB}
+    username: ${POSTGRES_USER}
+    password: ${POSTGRES_PASSWORD}
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+
+  flyway:
+    enabled: true
+
+server:
+  port: 8080
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
+
+logging:
+  level:
+    org.springframework.security: DEBUG

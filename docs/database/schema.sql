@@ -1,7 +1,7 @@
-﻿-- DocuMind proposed PostgreSQL schema
+-- DocuMind proposed PostgreSQL schema
 -- Status: Design artifact only; not yet applied to a database.
 -- Requires PostgreSQL 17+ and the pgvector extension.
--- VECTOR(384) assumes the proposed all-MiniLM-L6-v2 embedding model.
+-- VECTOR(384) matches the current BGE-small candidate; confirm the selected model before production.
 
 CREATE EXTENSION IF NOT EXISTS vector;
 
@@ -16,7 +16,25 @@ CREATE TABLE users (
     CONSTRAINT uq_users_email UNIQUE (email)
 );
 
--- 2. Workspaces
+-- 2. Refresh tokens: persist only a hash of each opaque refresh token.
+CREATE TABLE refresh_tokens (
+    id UUID PRIMARY KEY,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    family_id UUID NOT NULL,
+    token_hash CHAR(64) NOT NULL UNIQUE,
+    expires_at TIMESTAMPTZ NOT NULL,
+    revoked_at TIMESTAMPTZ,
+    replaced_by_token_id UUID REFERENCES refresh_tokens(id) ON DELETE SET NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT ck_refresh_tokens_expiry CHECK (expires_at > created_at)
+);
+
+CREATE INDEX idx_refresh_tokens_user
+    ON refresh_tokens(user_id);
+CREATE INDEX idx_refresh_tokens_family
+    ON refresh_tokens(family_id);
+
+-- 3. Workspaces
 CREATE TABLE workspaces (
     id UUID PRIMARY KEY,
     name VARCHAR(200) NOT NULL,
@@ -47,6 +65,7 @@ CREATE TABLE documents (
     file_size BIGINT NOT NULL,
     storage_key VARCHAR(1000) NOT NULL,
     checksum_sha256 CHAR(64),
+    page_count INTEGER CHECK (page_count IS NULL OR page_count > 0),
     status VARCHAR(30) NOT NULL DEFAULT 'PENDING',
     failure_message TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -70,20 +89,33 @@ CREATE TABLE document_chunks (
     workspace_id UUID NOT NULL,
     chunk_index INTEGER NOT NULL,
     content TEXT NOT NULL,
+    token_count INTEGER CHECK (token_count IS NULL OR token_count >= 0),
     page_number INTEGER,
+    page_start INTEGER,
+    page_end INTEGER,
     start_offset INTEGER,
     end_offset INTEGER,
     embedding VECTOR(384),
+    embedding_model VARCHAR(200),
+    embedding_model_revision VARCHAR(200),
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT uq_document_chunks_index UNIQUE (document_id, chunk_index),
     CONSTRAINT uq_document_chunks_scope
         UNIQUE (id, document_id, workspace_id),
+    CONSTRAINT uq_document_chunks_id_workspace
+        UNIQUE (id, workspace_id),
     CONSTRAINT fk_document_chunks_document_workspace
         FOREIGN KEY (document_id, workspace_id)
         REFERENCES documents(id, workspace_id) ON DELETE CASCADE,
     CONSTRAINT ck_document_chunks_index CHECK (chunk_index >= 0),
     CONSTRAINT ck_document_chunks_page
         CHECK (page_number IS NULL OR page_number > 0),
+    CONSTRAINT ck_document_chunks_page_range
+        CHECK (
+            (page_start IS NULL AND page_end IS NULL)
+            OR (page_start IS NOT NULL AND page_start > 0
+                AND page_end IS NOT NULL AND page_end >= page_start)
+        ),
     CONSTRAINT ck_document_chunks_offsets
         CHECK (
             start_offset IS NULL OR end_offset IS NULL
@@ -103,14 +135,14 @@ CREATE INDEX idx_document_chunks_workspace_document
 CREATE TABLE chat_sessions (
     id UUID PRIMARY KEY,
     workspace_id UUID NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
-    user_id UUID NOT NULL,
+    user_id UUID,
     title VARCHAR(300),
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT uq_chat_sessions_id_workspace UNIQUE (id, workspace_id),
-    CONSTRAINT fk_chat_sessions_workspace_member
-        FOREIGN KEY (workspace_id, user_id)
-        REFERENCES workspace_members(workspace_id, user_id) ON DELETE CASCADE
+    CONSTRAINT fk_chat_sessions_user
+        FOREIGN KEY (user_id)
+        REFERENCES users(id) ON DELETE SET NULL
 );
 
 CREATE INDEX idx_chat_sessions_workspace_user
@@ -123,6 +155,12 @@ CREATE TABLE chat_messages (
     workspace_id UUID NOT NULL,
     role VARCHAR(30) NOT NULL,
     content TEXT NOT NULL,
+    found_answer BOOLEAN NOT NULL DEFAULT TRUE,
+    prompt_version VARCHAR(100),
+    model_provider VARCHAR(100),
+    model_name VARCHAR(200),
+    feedback VARCHAR(20)
+        CHECK (feedback IS NULL OR feedback IN ('HELPFUL', 'NOT_HELPFUL')),
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT ck_chat_messages_role
         CHECK (role IN ('USER', 'ASSISTANT', 'SYSTEM')),
@@ -143,11 +181,21 @@ CREATE TABLE message_citations (
     document_id UUID NOT NULL,
     chunk_id UUID,
     page_number INTEGER,
+    page_start INTEGER,
+    page_end INTEGER,
     passage_reference TEXT,
     quoted_text TEXT,
+    relevance_score NUMERIC(6,5)
+        CHECK (relevance_score IS NULL OR relevance_score BETWEEN 0 AND 1),
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT ck_message_citations_page
         CHECK (page_number IS NULL OR page_number > 0),
+    CONSTRAINT ck_message_citations_page_range
+        CHECK (
+            (page_start IS NULL AND page_end IS NULL)
+            OR (page_start IS NOT NULL AND page_start > 0
+                AND page_end IS NOT NULL AND page_end >= page_start)
+        ),
     CONSTRAINT fk_message_citations_message_workspace
         FOREIGN KEY (message_id, workspace_id)
         REFERENCES chat_messages(id, workspace_id) ON DELETE CASCADE,
@@ -171,12 +219,16 @@ CREATE TABLE extraction_runs (
     requested_by UUID REFERENCES users(id) ON DELETE SET NULL,
     status VARCHAR(30) NOT NULL DEFAULT 'PENDING',
     schema_name VARCHAR(150) NOT NULL,
+    prompt_version VARCHAR(100),
+    model_provider VARCHAR(100),
+    model_name VARCHAR(200),
     error_message TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     completed_at TIMESTAMPTZ,
     CONSTRAINT ck_extraction_runs_status
         CHECK (status IN ('PENDING', 'PROCESSING', 'SUCCEEDED', 'FAILED')),
     CONSTRAINT uq_extraction_runs_id_workspace UNIQUE (id, workspace_id),
+    CONSTRAINT uq_extraction_runs_scope UNIQUE (id, document_id, workspace_id),
     CONSTRAINT fk_extraction_runs_document_workspace
         FOREIGN KEY (document_id, workspace_id)
         REFERENCES documents(id, workspace_id) ON DELETE CASCADE
@@ -189,20 +241,34 @@ CREATE INDEX idx_extraction_runs_document_created
 CREATE TABLE extracted_fields (
     id UUID PRIMARY KEY,
     extraction_run_id UUID NOT NULL,
+    document_id UUID NOT NULL,
     workspace_id UUID NOT NULL,
     field_name VARCHAR(200) NOT NULL,
     field_value JSONB,
+    source_chunk_id UUID,
     evidence TEXT,
     page_number INTEGER,
+    page_start INTEGER,
+    page_end INTEGER,
     confidence NUMERIC(5,4),
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT ck_extracted_fields_confidence
         CHECK (confidence IS NULL OR confidence BETWEEN 0 AND 1),
     CONSTRAINT ck_extracted_fields_page
         CHECK (page_number IS NULL OR page_number > 0),
-    CONSTRAINT fk_extracted_fields_run_workspace
-        FOREIGN KEY (extraction_run_id, workspace_id)
-        REFERENCES extraction_runs(id, workspace_id) ON DELETE CASCADE
+    CONSTRAINT ck_extracted_fields_page_range
+        CHECK (
+            (page_start IS NULL AND page_end IS NULL)
+            OR (page_start IS NOT NULL AND page_start > 0
+                AND page_end IS NOT NULL AND page_end >= page_start)
+        ),
+    CONSTRAINT fk_extracted_fields_run_scope
+        FOREIGN KEY (extraction_run_id, document_id, workspace_id)
+        REFERENCES extraction_runs(id, document_id, workspace_id) ON DELETE CASCADE,
+    CONSTRAINT fk_extracted_fields_source_chunk
+        FOREIGN KEY (source_chunk_id, document_id, workspace_id)
+        REFERENCES document_chunks(id, document_id, workspace_id)
+        ON DELETE SET NULL (source_chunk_id)
 );
 
 CREATE INDEX idx_extracted_fields_run ON extracted_fields(extraction_run_id);
@@ -234,18 +300,54 @@ CREATE TABLE checklist_items (
     CONSTRAINT fk_checklist_items_checklist_workspace
         FOREIGN KEY (checklist_id, workspace_id)
         REFERENCES checklists(id, workspace_id) ON DELETE CASCADE,
-    CONSTRAINT uq_checklist_items_id_workspace UNIQUE (id, workspace_id)
+    CONSTRAINT uq_checklist_items_id_workspace UNIQUE (id, workspace_id),
+    CONSTRAINT uq_checklist_items_scope UNIQUE (id, checklist_id, workspace_id)
 );
 
 CREATE INDEX idx_checklist_items_checklist_order
     ON checklist_items(checklist_id, item_order);
 
--- 13. Compliance results
+-- 13. Asynchronous compliance evaluation runs
+CREATE TABLE compliance_runs (
+    id UUID PRIMARY KEY,
+    document_id UUID NOT NULL,
+    checklist_id UUID NOT NULL,
+    workspace_id UUID NOT NULL,
+    requested_by UUID REFERENCES users(id) ON DELETE SET NULL,
+    status VARCHAR(30) NOT NULL DEFAULT 'PENDING',
+    prompt_version VARCHAR(100),
+    model_provider VARCHAR(100),
+    model_name VARCHAR(200),
+    error_message TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    completed_at TIMESTAMPTZ,
+    CONSTRAINT ck_compliance_runs_status
+        CHECK (status IN ('PENDING', 'PROCESSING', 'COMPLETED', 'FAILED')),
+    CONSTRAINT uq_compliance_runs_id_workspace UNIQUE (id, workspace_id),
+    CONSTRAINT uq_compliance_runs_scope
+        UNIQUE (id, document_id, checklist_id, workspace_id),
+    CONSTRAINT fk_compliance_runs_document_workspace
+        FOREIGN KEY (document_id, workspace_id)
+        REFERENCES documents(id, workspace_id) ON DELETE CASCADE,
+    CONSTRAINT fk_compliance_runs_checklist_workspace
+        FOREIGN KEY (checklist_id, workspace_id)
+        REFERENCES checklists(id, workspace_id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_compliance_runs_workspace_created
+    ON compliance_runs(workspace_id, created_at DESC);
+CREATE INDEX idx_compliance_runs_status
+    ON compliance_runs(status, created_at);
+
+-- 14. Compliance results
 CREATE TABLE compliance_results (
     id UUID PRIMARY KEY,
     document_id UUID NOT NULL,
     checklist_item_id UUID NOT NULL,
+    checklist_id UUID NOT NULL,
     workspace_id UUID NOT NULL,
+    compliance_run_id UUID NOT NULL,
+    source_chunk_id UUID,
     outcome VARCHAR(20) NOT NULL,
     evidence TEXT,
     explanation TEXT,
@@ -256,17 +358,26 @@ CREATE TABLE compliance_results (
     CONSTRAINT fk_compliance_results_document_workspace
         FOREIGN KEY (document_id, workspace_id)
         REFERENCES documents(id, workspace_id) ON DELETE CASCADE,
-    CONSTRAINT fk_compliance_results_item_workspace
-        FOREIGN KEY (checklist_item_id, workspace_id)
-        REFERENCES checklist_items(id, workspace_id) ON DELETE CASCADE
+    CONSTRAINT fk_compliance_results_item_scope
+        FOREIGN KEY (checklist_item_id, checklist_id, workspace_id)
+        REFERENCES checklist_items(id, checklist_id, workspace_id) ON DELETE CASCADE,
+    CONSTRAINT fk_compliance_results_run_scope
+        FOREIGN KEY (compliance_run_id, document_id, checklist_id, workspace_id)
+        REFERENCES compliance_runs(id, document_id, checklist_id, workspace_id) ON DELETE CASCADE,
+    CONSTRAINT fk_compliance_results_source_chunk
+        FOREIGN KEY (source_chunk_id, document_id, workspace_id)
+        REFERENCES document_chunks(id, document_id, workspace_id)
+        ON DELETE SET NULL (source_chunk_id)
 );
 
 CREATE INDEX idx_compliance_results_document
     ON compliance_results(document_id, created_at DESC);
 CREATE INDEX idx_compliance_results_checklist_item
     ON compliance_results(checklist_item_id);
+CREATE INDEX idx_compliance_results_run
+    ON compliance_results(compliance_run_id);
 
--- 14. Audit logs
+-- 15. Audit logs
 CREATE TABLE audit_logs (
     id UUID PRIMARY KEY,
     workspace_id UUID REFERENCES workspaces(id) ON DELETE SET NULL,

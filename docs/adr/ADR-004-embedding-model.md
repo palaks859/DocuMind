@@ -1,4 +1,4 @@
-﻿# ADR-004: Embedding Model
+# ADR-004: Embedding Model
 
 - **Status:** Proposed
 - **Date:** 2026-10-20
@@ -9,11 +9,11 @@ DocuMind needs vector embeddings to represent document chunks and user queries f
 
 ## Decision
 
-Use `all-MiniLM-L6-v2` as the initial candidate embedding model. Its planned output dimension is 384.
+Use `BAAI/bge-small-en-v1.5` as the initial candidate embedding model. Its planned output dimension is 384.
 
 ## Alternatives considered
 
-- `all-MiniLM-L6-v2`.
+- `sentence-transformers/all-MiniLM-L6-v2` (384 dimensions; shorter model input limit).
 - Other sentence-transformer embedding models.
 - A hosted embedding API.
 

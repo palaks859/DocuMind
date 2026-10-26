@@ -1,4 +1,4 @@
-﻿# DocuMind — Security Design
+# DocuMind - Security Design
 
 **Status:** Proposed; implementation and security review pending
 **Scope:** MVP application, API, document processing, AI workflows, and infrastructure
@@ -58,6 +58,31 @@ Proposed workspace roles:
 | VIEWER | Read permitted documents and results without modifying resources |
 
 The exact permissions for each endpoint must be maintained in an explicit authorization matrix.
+
+### Explicit Endpoint Permission Matrix
+
+All permissions below require authentication and active membership in the target workspace. The server must verify the workspace and resource scope on every request.
+
+| Operation | ADMIN | REVIEWER | VIEWER |
+|---|---|---|---|
+| Read workspace documents, metadata, and results | Allow | Allow | Allow |
+| Upload documents | Allow | Allow | Deny |
+| Delete documents | Allow | Deny | Deny |
+| Create chat sessions and submit questions | Allow | Allow | Allow |
+| Read own chat sessions, messages, and citations | Allow | Allow | Allow |
+| Read another member's chat history | Deny by default; explicit audited authorization required | Deny | Deny |
+| Delete own chat session | Allow | Allow | Allow |
+| Run or retry extraction | Allow | Allow | Deny |
+| Run compliance evaluation | Allow | Allow | Deny |
+| Read checklists and criteria | Allow | Allow | Allow |
+| Create, update, or delete checklists and criteria | Allow | Deny | Deny |
+| Manage workspace members and roles | Allow | Deny | Deny |
+| Read workspace audit logs | Allow | Deny | Deny |
+
+Document reprocessing and other state-changing operations require ADMIN or REVIEWER. VIEWER access is read-only apart from creating a chat session, submitting questions, and providing feedback on their own messages if that feature is enabled.
+
+Removing a member revokes their workspace access. Their retained chat sessions and messages are not automatically deleted, but become inaccessible to other members, including admins, by default. They remain subject to the separately defined retention and deletion policy. Any future administrative access override is Later and must require explicit authorization and audit logging.
+
 
 Requirements:
 
