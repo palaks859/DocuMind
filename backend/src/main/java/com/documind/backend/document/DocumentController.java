@@ -1,6 +1,7 @@
 package com.documind.backend.document;
 
 import com.documind.backend.auth.CurrentUserService;
+import com.documind.backend.document.dto.DocumentChunkResponse;
 import com.documind.backend.document.dto.DocumentResponse;
 import com.documind.backend.user.User;
 import io.swagger.v3.oas.annotations.Operation;
@@ -18,7 +19,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/workspaces/{workspaceId}/documents")
-@Tag(name = "Documents", description = "Workspace document upload, metadata listing, download, and deletion")
+@Tag(name = "Documents", description = "Workspace document upload, chunk inspection, download, and deletion")
 public class DocumentController {
 
     private final DocumentService documentService;
@@ -30,7 +31,7 @@ public class DocumentController {
     }
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    @Operation(summary = "Upload a document (PDF, DOCX, TXT) into a workspace (REVIEWER+)")
+    @Operation(summary = "Upload and ingest a document (PDF, DOCX, TXT) into a workspace (REVIEWER+)")
     public ResponseEntity<DocumentResponse> upload(@PathVariable UUID workspaceId,
                                                    @RequestPart("file") MultipartFile file) {
         User uploader = currentUserService.getCurrentUser();
@@ -48,6 +49,14 @@ public class DocumentController {
     @Operation(summary = "Get document metadata (VIEWER+)")
     public ResponseEntity<DocumentResponse> get(@PathVariable UUID workspaceId, @PathVariable UUID documentId) {
         return ResponseEntity.ok(documentService.getDocument(
+                workspaceId, documentId, currentUserService.getCurrentUserId()));
+    }
+
+    @GetMapping("/{documentId}/chunks")
+    @Operation(summary = "List extracted page-aware chunks for a document (VIEWER+)")
+    public ResponseEntity<List<DocumentChunkResponse>> listChunks(@PathVariable UUID workspaceId,
+                                                                  @PathVariable UUID documentId) {
+        return ResponseEntity.ok(documentService.listDocumentChunks(
                 workspaceId, documentId, currentUserService.getCurrentUserId()));
     }
 
