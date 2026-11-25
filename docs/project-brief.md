@@ -1,4 +1,4 @@
-﻿# DocuMind — Project Brief
+# DocuMind — Project Brief
 
 ## 1. Project Overview
 
@@ -6,7 +6,7 @@ DocuMind is an Enterprise Document Intelligence Platform intended to help users 
 
 The platform will combine document processing, semantic retrieval, and AI-assisted answers with source references. It will use a web frontend, a backend API, an AI service, and a database.
 
-**Current status:** Phase 0 — repository setup and project planning. No application features are claimed to be implemented yet.
+**Current status:** Phase 0 — Design and Planning (in progress). Core documentation and architecture decisions are being finalized, and PostgreSQL 17 with pgvector (Flyway V1) is running and verified in Docker; application features are not yet implemented.
 
 ## 2. Problem Statement
 
@@ -85,15 +85,15 @@ The following are not initial release requirements unless approved later:
 
 - **Frontend:** React and TypeScript.
 - **Backend API:** Java and Spring Boot.
-- **Database:** PostgreSQL with pgvector.
+- **Database:** PostgreSQL 17 with pgvector.
 - **AI service:** Python and FastAPI.
-- **Embeddings:** `all-MiniLM-L6-v2`, planned 384-dimensional vectors.
+- **Embeddings:** `BAAI/bge-small-en-v1.5`, initial candidate with 384-dimensional vectors; final approval is subject to retrieval-quality evaluation.
 - **Containerization:** Docker and Docker Compose.
-- **Database migrations:** Flyway, planned for the backend database.
+- **Database migrations:** Flyway; initial migration V1 has been successfully applied.
 - **File storage:** local storage for initial development, behind a storage abstraction where practical.
 - **Authentication:** JWT-based access and refresh tokens, with secure password hashing.
 
-These choices are planned and must be confirmed through Architecture Decision Records (ADRs). The LLM provider and final version selections remain to be documented.
+These choices are documented in Architecture Decision Records (ADRs). Some decisions remain proposed or subject to validation. The LLM provider and final version selections must be confirmed before implementation.
 
 ## 9. Quality and Security Goals
 
@@ -161,8 +161,10 @@ The detailed dataset, metrics, baselines, and experiment procedure will be recor
 
 ## 14. Current Status
 
-Phase 0: repository setup and project planning.
+Phase 0 — Design and Planning (in progress).
 
-The repository and initial planning documents have been created. Requirements, architecture decisions, database design, API specifications, security design, AI design, wireframes, evaluation planning, and project-management setup remain subject to completion and verification.
+The repository contains the initial project structure and planning documentation. The PostgreSQL 17 development database is running through Docker with pgvector enabled. Flyway migration V1 has been successfully applied, and the initial database schema has been verified.
 
-No application features are claimed to be implemented yet.
+The project brief, requirements, architecture decisions, database design, API specifications, security design, AI design, evaluation plan, and risk register are being reviewed for completeness and consistency. UI wireframes and project-management setup remain to be completed and verified.
+
+Core application features, end-to-end workflows, deployment, and AI evaluation have not yet been completed or validated. No production-readiness or application-feature completion claims are made at this stage.

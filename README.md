@@ -13,7 +13,7 @@
 
 **Project status:** Phase 0 — Design and Planning
 
-> **Development status:** The repository currently contains initial planning documentation and project structure. Application features, automated tests, deployment, and evaluation results have not yet been implemented or verified.
+> **Development status:** Phase 0 is in progress. Core planning documentation and architecture decisions are being established. The PostgreSQL 17 database environment is running through Docker, and the initial Flyway migration (V1) has been successfully applied and verified. Core application features, end-to-end workflows, deployment, and AI evaluation are not yet complete.
 
 > **Data policy:** The project is intended to use public or synthetic documents for development and evaluation. Do not upload confidential or personal information.
 
@@ -271,13 +271,13 @@ DocuMind/
 └── README.md
 ```
 
-Additional requirements, architecture, database, API, security, AI design, and evaluation documents will be added as Phase 0 progresses.
+The `docs/` directory contains the current project brief, requirements, user stories, architecture, database design, API contract, security design, AI design, ADRs, evaluation plan, and risk register. UI wireframes and remaining project-management artifacts are still being completed.
 
 ## Getting Started
 
 ### Current Repository
 
-The repository currently contains the initial project structure and planning documents. The application is not yet ready to run.
+The repository contains the Phase 0 planning documents and an initial backend/database foundation. The PostgreSQL development database is available through Docker, but the complete application is not yet ready to run.
 
 Clone the repository:
 

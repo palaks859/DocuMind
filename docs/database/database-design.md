@@ -1,10 +1,14 @@
 ﻿# DocuMind — Database Design
 
-**Status:** Proposed schema  
-**Database:** PostgreSQL 17 with pgvector  
+**Status:** Initial schema applied; design subject to further review
+**Database:** PostgreSQL 17 with pgvector
 **Migration tool:** Flyway
 
-This is a design artifact only. It has not yet been applied to a database. The SQL requires the pgvector extension, which is not currently available in the local PostgreSQL installation.
+The initial database schema has been applied successfully using Flyway migration V1 (`V1__initial_schema.sql`).
+
+The local PostgreSQL 17 database runs through Docker using the `pgvector/pgvector:pg17` image. The Flyway history confirms that migration V1 completed successfully.
+
+The database currently contains 16 application tables, in addition to Flyway's `flyway_schema_history` table. The `document_chunks.embedding` column uses `VECTOR(384)`, matching the dimensions of the current BGE-small embedding model candidate. Final model approval remains subject to evaluation.
 
 ## 1. Entity-Relationship Diagram
 
@@ -181,4 +185,4 @@ erDiagram
 - Decide whether UUID generation is performed by the application or database.
 - Specify file retention and deletion behavior.
 - Review database constraints against API authorization and security requirements.
-- Convert the approved schema into versioned Flyway migrations before implementation.
+- Continue evolving the database schema through versioned Flyway migrations. Do not modify migrations that have already been applied.
