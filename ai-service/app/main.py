@@ -1,15 +1,15 @@
-from pathlib import Path
 from typing import Optional
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from app.chunker import chunk_pages
 from app.config import settings
+from app.embeddings import embed_texts
 from app.parsers import parse_document_bytes
-from app.schemas import IngestResponse, StorageIngestRequest
+from app.schemas import EmbedRequest, EmbedResponse, IngestResponse, StorageIngestRequest
 
 app = FastAPI(
     title="DocuMind AI Service",
     version=settings.service_version,
-    description="Document parsing, page-aware chunking, embeddings, and grounded RAG microservice",
+    description="Document parsing, page-aware chunking, BGE-small embeddings, and grounded RAG microservice",
 )
 
 
@@ -19,7 +19,20 @@ def health() -> dict:
         "status": "UP",
         "service": settings.service_name,
         "version": settings.service_version,
+        "embedding_model": settings.embedding_model_name,
+        "embedding_dimension": settings.embedding_dimension,
     }
+
+
+@app.post("/api/v1/embeddings", response_model=EmbedResponse)
+def create_embeddings(payload: EmbedRequest) -> EmbedResponse:
+    vectors = embed_texts(payload.texts, is_query=payload.is_query)
+    return EmbedResponse(
+        model=settings.embedding_model_name,
+        revision=settings.embedding_model_revision,
+        dimension=settings.embedding_dimension,
+        embeddings=vectors,
+    )
 
 
 @app.post("/api/v1/ingest/parse", response_model=IngestResponse)
@@ -42,6 +55,10 @@ async def ingest_uploaded_file(
             filename=file.filename or "document",
         )
         chunks = chunk_pages(pages, chunk_size=c_size, chunk_overlap=c_overlap)
+        if chunks:
+            vectors = embed_texts([c.content for c in chunks], is_query=False)
+            for chunk, vec in zip(chunks, vectors):
+                chunk.embedding = vec
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -50,6 +67,9 @@ async def ingest_uploaded_file(
         content_type=file.content_type or "application/octet-stream",
         page_count=len(pages),
         total_chunks=len(chunks),
+        embedding_model=settings.embedding_model_name,
+        embedding_model_revision=settings.embedding_model_revision,
+        embedding_dimension=settings.embedding_dimension,
         chunks=chunks,
     )
 
@@ -74,6 +94,10 @@ def ingest_from_local_storage(payload: StorageIngestRequest) -> IngestResponse:
             filename=payload.filename,
         )
         chunks = chunk_pages(pages, chunk_size=c_size, chunk_overlap=c_overlap)
+        if chunks:
+            vectors = embed_texts([c.content for c in chunks], is_query=False)
+            for chunk, vec in zip(chunks, vectors):
+                chunk.embedding = vec
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -82,5 +106,8 @@ def ingest_from_local_storage(payload: StorageIngestRequest) -> IngestResponse:
         content_type=payload.content_type,
         page_count=len(pages),
         total_chunks=len(chunks),
+        embedding_model=settings.embedding_model_name,
+        embedding_model_revision=settings.embedding_model_revision,
+        embedding_dimension=settings.embedding_dimension,
         chunks=chunks,
     )

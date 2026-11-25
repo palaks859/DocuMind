@@ -4,10 +4,13 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     service_name: str = "documind-ai-service"
-    service_version: str = "0.1.0"
+    service_version: str = "0.2.0"
     local_storage_root: str = "../data/uploads"
     default_chunk_size: int = 1000
     default_chunk_overlap: int = 150
+    embedding_model_name: str = "BAAI/bge-small-en-v1.5"
+    embedding_model_revision: str = "v1.5"
+    embedding_dimension: int = 384
 
     model_config = SettingsConfigDict(
         env_file="../.env",

@@ -1,4 +1,5 @@
 from io import BytesIO
+import numpy as np
 import pymupdf
 from docx import Document as DocxDocument
 from fastapi.testclient import TestClient
@@ -34,10 +35,12 @@ def _make_sample_docx() -> bytes:
 def test_health():
     res = client.get("/health")
     assert res.status_code == 200
-    assert res.json()["status"] == "UP"
+    body = res.json()
+    assert body["status"] == "UP"
+    assert body["embedding_dimension"] == 384
 
 
-def test_pdf_ingestion_preserves_page_numbers():
+def test_pdf_ingestion_preserves_page_numbers_and_embeds():
     pdf_bytes = _make_sample_pdf()
     res = client.post(
         "/api/v1/ingest/parse",
@@ -50,6 +53,7 @@ def test_pdf_ingestion_preserves_page_numbers():
     assert body["total_chunks"] >= 1
     assert body["chunks"][0]["page_start"] == 1
     assert body["chunks"][-1]["page_end"] == 2
+    assert len(body["chunks"][0]["embedding"]) == 384
 
 
 def test_docx_ingestion_extracts_paragraphs_and_tables():
@@ -70,3 +74,28 @@ def test_docx_ingestion_extracts_paragraphs_and_tables():
     content = body["chunks"][0]["content"]
     assert "Vendor Security Policy" in content
     assert "SOC2 Type II" in content
+    assert len(body["chunks"][0]["embedding"]) == 384
+
+
+def test_semantic_embedding_similarity():
+    passage_res = client.post(
+        "/api/v1/embeddings",
+        json={
+            "texts": [
+                "Governing law is the State of Delaware.",
+                "Quarterly cafeteria lunch menu and catering schedule.",
+            ],
+            "is_query": False,
+        },
+    )
+    query_res = client.post(
+        "/api/v1/embeddings",
+        json={"texts": ["Which state governs this legal agreement?"], "is_query": True},
+    )
+    assert passage_res.status_code == 200
+    assert query_res.status_code == 200
+
+    p_vecs = np.array(passage_res.json()["embeddings"])
+    q_vec = np.array(query_res.json()["embeddings"][0])
+    scores = p_vecs @ q_vec
+    assert scores[0] > scores[1]

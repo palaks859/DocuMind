@@ -35,6 +35,7 @@ public class DocumentService {
 
     private final DocumentRepository documentRepository;
     private final DocumentChunkRepository chunkRepository;
+    private final DocumentChunkVectorRepository chunkVectorRepository;
     private final WorkspaceAuthorizationService authorizationService;
     private final StorageService storageService;
     private final AiServiceClient aiServiceClient;
@@ -42,12 +43,14 @@ public class DocumentService {
 
     public DocumentService(DocumentRepository documentRepository,
                            DocumentChunkRepository chunkRepository,
+                           DocumentChunkVectorRepository chunkVectorRepository,
                            WorkspaceAuthorizationService authorizationService,
                            StorageService storageService,
                            AiServiceClient aiServiceClient,
                            AuditLogService auditLogService) {
         this.documentRepository = documentRepository;
         this.chunkRepository = chunkRepository;
+        this.chunkVectorRepository = chunkVectorRepository;
         this.authorizationService = authorizationService;
         this.storageService = storageService;
         this.aiServiceClient = aiServiceClient;
@@ -97,22 +100,24 @@ public class DocumentService {
                     stored.storageKey(), originalFilename, contentType);
 
             if (ingested != null && ingested.chunks() != null) {
-                List<DocumentChunk> chunkEntities = ingested.chunks().stream()
-                        .map(c -> new DocumentChunk(
-                                UUID.randomUUID(),
-                                documentId,
-                                workspaceId,
-                                c.chunk_index(),
-                                c.content(),
-                                c.token_count(),
-                                c.page_number(),
-                                c.page_start(),
-                                c.page_end(),
-                                c.start_offset(),
-                                c.end_offset()
-                        ))
-                        .toList();
-                chunkRepository.saveAll(chunkEntities);
+                for (AiServiceClient.ChunkItem c : ingested.chunks()) {
+                    chunkVectorRepository.insertChunkWithEmbedding(
+                            UUID.randomUUID(),
+                            documentId,
+                            workspaceId,
+                            c.chunk_index(),
+                            c.content(),
+                            c.token_count(),
+                            c.page_number(),
+                            c.page_start(),
+                            c.page_end(),
+                            c.start_offset(),
+                            c.end_offset(),
+                            c.embedding(),
+                            ingested.embedding_model(),
+                            ingested.embedding_model_revision()
+                    );
+                }
                 document.setPageCount(ingested.page_count());
             }
             document.setStatus(DocumentStatus.READY);
@@ -121,7 +126,8 @@ public class DocumentService {
             auditLogService.record(workspaceId, uploader.getId(), "DOCUMENT_INGESTED",
                     "DOCUMENT", document.getId(),
                     Map.of("pageCount", document.getPageCount() != null ? document.getPageCount() : 0,
-                           "chunkCount", ingested != null ? ingested.total_chunks() : 0));
+                           "chunkCount", ingested != null ? ingested.total_chunks() : 0,
+                           "embeddingModel", ingested != null && ingested.embedding_model() != null ? ingested.embedding_model() : ""));
         } catch (Exception ex) {
             log.warn("Document ingestion failed for document {}: {}", documentId, ex.getMessage());
             document.setStatus(DocumentStatus.FAILED);

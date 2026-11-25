@@ -36,6 +36,20 @@ public class AiServiceClient {
                 .body(IngestResult.class);
     }
 
+    public List<Double> embedQuery(String query) {
+        EmbedPayload payload = new EmbedPayload(List.of(query), true);
+        EmbedResult result = restClient.post()
+                .uri("/api/v1/embeddings")
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(payload)
+                .retrieve()
+                .body(EmbedResult.class);
+        if (result == null || result.embeddings() == null || result.embeddings().isEmpty()) {
+            throw new IllegalStateException("AI service returned empty query embedding.");
+        }
+        return result.embeddings().get(0);
+    }
+
     public record StorageIngestPayload(
             String storage_key,
             String filename,
@@ -47,6 +61,9 @@ public class AiServiceClient {
             String content_type,
             int page_count,
             int total_chunks,
+            String embedding_model,
+            String embedding_model_revision,
+            int embedding_dimension,
             List<ChunkItem> chunks
     ) {}
 
@@ -58,6 +75,19 @@ public class AiServiceClient {
             Integer page_start,
             Integer page_end,
             Integer start_offset,
-            Integer end_offset
+            Integer end_offset,
+            List<Double> embedding
+    ) {}
+
+    public record EmbedPayload(
+            List<String> texts,
+            boolean is_query
+    ) {}
+
+    public record EmbedResult(
+            String model,
+            String revision,
+            int dimension,
+            List<List<Double>> embeddings
     ) {}
 }
