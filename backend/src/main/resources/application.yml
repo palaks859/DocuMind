@@ -1,5 +1,4 @@
-﻿
-spring:
+﻿spring:
   application:
     name: documind-backend
 
@@ -16,6 +15,11 @@ spring:
   flyway:
     enabled: true
 
+  servlet:
+    multipart:
+      max-file-size: 25MB
+      max-request-size: 25MB
+
 server:
   port: 8080
 
@@ -28,6 +32,14 @@ management:
     health:
       show-details: never
 
+app:
+  jwt:
+    secret: ${JWT_SECRET:change-this-dev-secret-key-at-least-32-bytes-long-2026}
+    access-token-expiration-minutes: 15
+    refresh-token-expiration-days: 7
+  storage:
+    local-root: ${LOCAL_STORAGE_ROOT:./data/uploads}
+
 logging:
   level:
-    org.springframework.security: DEBUG
+    org.springframework.security: INFO
