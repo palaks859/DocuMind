@@ -62,11 +62,32 @@ public class AiServiceClient {
                 .body(RagAnswerResult.class);
     }
 
-    public record StorageIngestPayload(
-            String storage_key,
-            String filename,
-            String content_type
-    ) {}
+    public FieldExtractResult extractFields(String schemaName,
+                                            String documentFilename,
+                                            List<FieldSpecPayload> fields,
+                                            List<DocChunkPayload> chunks) {
+        FieldExtractPayload payload = new FieldExtractPayload(schemaName, documentFilename, fields, chunks);
+        return restClient.post()
+                .uri("/api/v1/extract/fields")
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(payload)
+                .retrieve()
+                .body(FieldExtractResult.class);
+    }
+
+    public ComplianceEvaluateResult evaluateCompliance(String documentFilename,
+                                                       List<ChecklistCriterionPayload> criteria,
+                                                       List<DocChunkPayload> chunks) {
+        ComplianceEvaluatePayload payload = new ComplianceEvaluatePayload(documentFilename, criteria, chunks);
+        return restClient.post()
+                .uri("/api/v1/compliance/evaluate")
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(payload)
+                .retrieve()
+                .body(ComplianceEvaluateResult.class);
+    }
+
+    public record StorageIngestPayload(String storage_key, String filename, String content_type) {}
 
     public record IngestResult(
             String filename,
@@ -91,17 +112,9 @@ public class AiServiceClient {
             List<Double> embedding
     ) {}
 
-    public record EmbedPayload(
-            List<String> texts,
-            boolean is_query
-    ) {}
+    public record EmbedPayload(List<String> texts, boolean is_query) {}
 
-    public record EmbedResult(
-            String model,
-            String revision,
-            int dimension,
-            List<List<Double>> embeddings
-    ) {}
+    public record EmbedResult(String model, String revision, int dimension, List<List<Double>> embeddings) {}
 
     public record RagContextChunkPayload(
             String chunk_id,
@@ -115,10 +128,7 @@ public class AiServiceClient {
             double similarity_score
     ) {}
 
-    public record RagHistoryTurnPayload(
-            String role,
-            String content
-    ) {}
+    public record RagHistoryTurnPayload(String role, String content) {}
 
     public record RagAnswerPayload(
             String question,
@@ -146,5 +156,65 @@ public class AiServiceClient {
             String model_provider,
             String model_name,
             List<RagCitationItem> citations
+    ) {}
+
+    public record DocChunkPayload(
+            String chunk_id,
+            int chunk_index,
+            Integer page_number,
+            Integer page_start,
+            Integer page_end,
+            String content
+    ) {}
+
+    public record FieldSpecPayload(String field_name, String description) {}
+
+    public record FieldExtractPayload(
+            String schema_name,
+            String document_filename,
+            List<FieldSpecPayload> fields,
+            List<DocChunkPayload> chunks
+    ) {}
+
+    public record ExtractedFieldItem(
+            String field_name,
+            Object field_value,
+            String source_chunk_id,
+            String evidence,
+            Integer page_number,
+            Integer page_start,
+            Integer page_end,
+            double confidence
+    ) {}
+
+    public record FieldExtractResult(
+            String schema_name,
+            String prompt_version,
+            String model_provider,
+            String model_name,
+            List<ExtractedFieldItem> fields
+    ) {}
+
+    public record ChecklistCriterionPayload(String item_id, String criterion, String description) {}
+
+    public record ComplianceEvaluatePayload(
+            String document_filename,
+            List<ChecklistCriterionPayload> criteria,
+            List<DocChunkPayload> chunks
+    ) {}
+
+    public record ComplianceItemResultItem(
+            String checklist_item_id,
+            String source_chunk_id,
+            String outcome,
+            String evidence,
+            String explanation
+    ) {}
+
+    public record ComplianceEvaluateResult(
+            String prompt_version,
+            String model_provider,
+            String model_name,
+            List<ComplianceItemResultItem> results
     ) {}
 }

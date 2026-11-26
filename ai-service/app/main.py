@@ -3,11 +3,16 @@ from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from app.chunker import chunk_pages
 from app.config import settings
 from app.embeddings import embed_texts
+from app.extraction import evaluate_compliance_checklist, extract_structured_fields
 from app.parsers import parse_document_bytes
 from app.rag import generate_grounded_answer
 from app.schemas import (
+    ComplianceEvaluateRequest,
+    ComplianceEvaluateResponse,
     EmbedRequest,
     EmbedResponse,
+    FieldExtractRequest,
+    FieldExtractResponse,
     IngestResponse,
     RagAnswerRequest,
     RagAnswerResponse,
@@ -17,7 +22,7 @@ from app.schemas import (
 app = FastAPI(
     title="DocuMind AI Service",
     version=settings.service_version,
-    description="Document parsing, page-aware chunking, BGE-small embeddings, and grounded RAG microservice",
+    description="Document parsing, page-aware chunking, BGE-small embeddings, grounded RAG, extraction, and compliance microservice",
 )
 
 
@@ -46,6 +51,16 @@ def create_embeddings(payload: EmbedRequest) -> EmbedResponse:
 @app.post("/api/v1/rag/answer", response_model=RagAnswerResponse)
 def answer_question(payload: RagAnswerRequest) -> RagAnswerResponse:
     return generate_grounded_answer(payload)
+
+
+@app.post("/api/v1/extract/fields", response_model=FieldExtractResponse)
+def extract_fields(payload: FieldExtractRequest) -> FieldExtractResponse:
+    return extract_structured_fields(payload)
+
+
+@app.post("/api/v1/compliance/evaluate", response_model=ComplianceEvaluateResponse)
+def evaluate_compliance(payload: ComplianceEvaluateRequest) -> ComplianceEvaluateResponse:
+    return evaluate_compliance_checklist(payload)
 
 
 @app.post("/api/v1/ingest/parse", response_model=IngestResponse)

@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import Any, List, Optional
 from pydantic import BaseModel, Field
 
 
@@ -93,3 +93,70 @@ class RagAnswerResponse(BaseModel):
     model_provider: str
     model_name: str
     citations: List[RagCitationOut] = Field(default_factory=list)
+
+
+class DocumentChunkInput(BaseModel):
+    chunk_id: str
+    chunk_index: int
+    page_number: Optional[int] = None
+    page_start: Optional[int] = None
+    page_end: Optional[int] = None
+    content: str
+
+
+class FieldSpecInput(BaseModel):
+    field_name: str = Field(..., min_length=1, max_length=200)
+    description: Optional[str] = None
+
+
+class FieldExtractRequest(BaseModel):
+    schema_name: str = Field(..., min_length=1, max_length=150)
+    document_filename: str
+    fields: List[FieldSpecInput] = Field(default_factory=list)
+    chunks: List[DocumentChunkInput] = Field(..., min_length=1)
+
+
+class ExtractedFieldOut(BaseModel):
+    field_name: str
+    field_value: Any
+    source_chunk_id: Optional[str] = None
+    evidence: Optional[str] = None
+    page_number: Optional[int] = None
+    page_start: Optional[int] = None
+    page_end: Optional[int] = None
+    confidence: float
+
+
+class FieldExtractResponse(BaseModel):
+    schema_name: str
+    prompt_version: str
+    model_provider: str
+    model_name: str
+    fields: List[ExtractedFieldOut]
+
+
+class ChecklistCriterionInput(BaseModel):
+    item_id: str
+    criterion: str
+    description: Optional[str] = None
+
+
+class ComplianceEvaluateRequest(BaseModel):
+    document_filename: str
+    criteria: List[ChecklistCriterionInput] = Field(..., min_length=1)
+    chunks: List[DocumentChunkInput] = Field(..., min_length=1)
+
+
+class ComplianceItemResultOut(BaseModel):
+    checklist_item_id: str
+    source_chunk_id: Optional[str] = None
+    outcome: str
+    evidence: Optional[str] = None
+    explanation: str
+
+
+class ComplianceEvaluateResponse(BaseModel):
+    prompt_version: str
+    model_provider: str
+    model_name: str
+    results: List[ComplianceItemResultOut]
