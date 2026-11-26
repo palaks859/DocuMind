@@ -57,7 +57,7 @@ export const api = {
   register: (fullName: string, email: string, password: string) =>
     request<AuthResponse>("/auth/register", {
       method: "POST",
-      body: JSON.stringify({ fullName, email, password }),
+      body: JSON.stringify({ displayName: fullName, email, password }),
     }),
 
   listWorkspaces: () => request<Workspace[]>("/workspaces"),
