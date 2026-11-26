@@ -1,22 +1,65 @@
-﻿services:
-  db:
+services:
+  postgres:
     image: pgvector/pgvector:pg17
-    container_name: documind-db
-    restart: unless-stopped
+    container_name: documind-postgres
     environment:
-      POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-documind}
+      POSTGRES_USER: ${POSTGRES_USER:-documind}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-documind_dev_password}
     ports:
-      - "127.0.0.1:${DB_PORT:-5432}:5432"
+      - "5432:5432"
     volumes:
-      - documind_postgres_data:/var/lib/postgresql/data
+      - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
-      interval: 10s
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-documind} -d ${POSTGRES_DB:-documind}"]
+      interval: 5s
       timeout: 5s
-      retries: 5
-      start_period: 10s
+      retries: 10
+
+  ai-service:
+    build:
+      context: ./ai-service
+    container_name: documind-ai-service
+    environment:
+      LOCAL_STORAGE_ROOT: /data/uploads
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      LLM_BASE_URL: ${LLM_BASE_URL:-https://api.openai.com/v1}
+      LLM_MODEL: ${LLM_MODEL:-gpt-4o-mini}
+    ports:
+      - "8001:8001"
+    volumes:
+      - uploads:/data/uploads
+
+  backend:
+    build:
+      context: ./backend
+    container_name: documind-backend
+    depends_on:
+      postgres:
+        condition: service_healthy
+      ai-service:
+        condition: service_started
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-documind}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-documind}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-documind_dev_password}
+      APP_JWT_SECRET: ${APP_JWT_SECRET:-change-this-256-bit-secret-key-for-production-environments-now}
+      APP_STORAGE_LOCAL_ROOT: /data/uploads
+      APP_AI_SERVICE_BASE_URL: http://ai-service:8001
+    ports:
+      - "8080:8080"
+    volumes:
+      - uploads:/data/uploads
+
+  frontend:
+    build:
+      context: ./frontend
+    container_name: documind-frontend
+    depends_on:
+      - backend
+    ports:
+      - "3000:80"
 
 volumes:
-  documind_postgres_data:
+  pgdata:
+  uploads:

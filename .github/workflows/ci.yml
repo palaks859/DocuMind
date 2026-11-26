@@ -1,0 +1,46 @@
+name: DocuMind CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  ai-service-and-eval:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install AI Service Dependencies
+        run: pip install -r ai-service/requirements.txt pytest
+      - name: Run AI Service Unit Tests
+        run: pytest ai-service/tests -v
+      - name: Run Grounded RAG, Extraction & Compliance Evaluation Harness
+        run: python eval/run_eval.py
+
+  backend-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "24"
+      - name: Compile Spring Boot Backend
+        run: ./backend/mvnw -f backend/pom.xml test-compile -B
+
+  frontend-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install & Build React Frontend
+        working-directory: frontend
+        run: |
+          npm install
+          npm run build

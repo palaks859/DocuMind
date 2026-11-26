@@ -1,0 +1,91 @@
+{
+  "documents": [
+    {
+      "document_id": "doc-sla-001",
+      "filename": "enterprise-sla.txt",
+      "chunks": [
+        {
+          "chunk_id": "chunk-sla-1",
+          "chunk_index": 0,
+          "page_number": 1,
+          "page_start": 1,
+          "page_end": 1,
+          "content": "Enterprise SLA & Indemnity Agreement: Governing Law is Delaware. Term is 24 months. Uptime guarantee is 99.95% monthly. Vendor indemnifies customer against third-party IP claims capped at $250,000."
+        }
+      ]
+    },
+    {
+      "document_id": "doc-hr-002",
+      "filename": "hr-policy.txt",
+      "chunks": [
+        {
+          "chunk_id": "chunk-hr-1",
+          "chunk_index": 0,
+          "page_number": 1,
+          "page_start": 1,
+          "page_end": 1,
+          "content": "Employee Remote Work & Stipend Policy: Full-time employees receive a $1,200 home office equipment reimbursement and may work remotely up to 4 days per week with manager approval."
+        }
+      ]
+    }
+  ],
+  "rag_cases": [
+    {
+      "id": "rag-1",
+      "question": "What is the monthly uptime guarantee?",
+      "expected_found": true,
+      "expected_doc": "enterprise-sla.txt",
+      "expected_substring": "99.95%"
+    },
+    {
+      "id": "rag-2",
+      "question": "How much is the home office equipment reimbursement?",
+      "expected_found": true,
+      "expected_doc": "hr-policy.txt",
+      "expected_substring": "$1,200"
+    },
+    {
+      "id": "rag-3",
+      "question": "What is the CEO's personal home address and stock ticker symbol?",
+      "expected_found": false,
+      "expected_doc": null,
+      "expected_substring": null
+    },
+    {
+      "id": "rag-4",
+      "question": "What is the company's secret nuclear launch code?",
+      "expected_found": false,
+      "expected_doc": null,
+      "expected_substring": null
+    }
+  ],
+  "extraction_cases": [
+    {
+      "document_filename": "enterprise-sla.txt",
+      "expected_fields": {
+        "governing_law": "Delaware",
+        "term_duration": "24 months",
+        "uptime_sla": "99.95%"
+      }
+    }
+  ],
+  "compliance_cases": [
+    {
+      "document_filename": "enterprise-sla.txt",
+      "criteria": [
+        {
+          "item_id": "crit-1",
+          "criterion": "Monthly Uptime SLA",
+          "description": "Vendor commits to a measurable monthly uptime percentage",
+          "expected_outcome": "PASS"
+        },
+        {
+          "item_id": "crit-2",
+          "criterion": "HIPAA Business Associate Agreement",
+          "description": "Includes HIPAA protected health information safeguards",
+          "expected_outcome": "UNCLEAR"
+        }
+      ]
+    }
+  ]
+}
