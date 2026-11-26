@@ -50,6 +50,18 @@ public class AiServiceClient {
         return result.embeddings().get(0);
     }
 
+    public RagAnswerResult generateGroundedAnswer(String question,
+                                                  List<RagContextChunkPayload> chunks,
+                                                  List<RagHistoryTurnPayload> history) {
+        RagAnswerPayload payload = new RagAnswerPayload(question, chunks, history, null);
+        return restClient.post()
+                .uri("/api/v1/rag/answer")
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(payload)
+                .retrieve()
+                .body(RagAnswerResult.class);
+    }
+
     public record StorageIngestPayload(
             String storage_key,
             String filename,
@@ -89,5 +101,50 @@ public class AiServiceClient {
             String revision,
             int dimension,
             List<List<Double>> embeddings
+    ) {}
+
+    public record RagContextChunkPayload(
+            String chunk_id,
+            String document_id,
+            String document_filename,
+            int chunk_index,
+            Integer page_number,
+            Integer page_start,
+            Integer page_end,
+            String content,
+            double similarity_score
+    ) {}
+
+    public record RagHistoryTurnPayload(
+            String role,
+            String content
+    ) {}
+
+    public record RagAnswerPayload(
+            String question,
+            List<RagContextChunkPayload> chunks,
+            List<RagHistoryTurnPayload> history,
+            Double min_similarity
+    ) {}
+
+    public record RagCitationItem(
+            String chunk_id,
+            String document_id,
+            String document_filename,
+            Integer page_number,
+            Integer page_start,
+            Integer page_end,
+            String passage_reference,
+            String quoted_text,
+            double relevance_score
+    ) {}
+
+    public record RagAnswerResult(
+            String answer,
+            boolean found_answer,
+            String prompt_version,
+            String model_provider,
+            String model_name,
+            List<RagCitationItem> citations
     ) {}
 }

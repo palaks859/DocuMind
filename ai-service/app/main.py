@@ -4,7 +4,15 @@ from app.chunker import chunk_pages
 from app.config import settings
 from app.embeddings import embed_texts
 from app.parsers import parse_document_bytes
-from app.schemas import EmbedRequest, EmbedResponse, IngestResponse, StorageIngestRequest
+from app.rag import generate_grounded_answer
+from app.schemas import (
+    EmbedRequest,
+    EmbedResponse,
+    IngestResponse,
+    RagAnswerRequest,
+    RagAnswerResponse,
+    StorageIngestRequest,
+)
 
 app = FastAPI(
     title="DocuMind AI Service",
@@ -33,6 +41,11 @@ def create_embeddings(payload: EmbedRequest) -> EmbedResponse:
         dimension=settings.embedding_dimension,
         embeddings=vectors,
     )
+
+
+@app.post("/api/v1/rag/answer", response_model=RagAnswerResponse)
+def answer_question(payload: RagAnswerRequest) -> RagAnswerResponse:
+    return generate_grounded_answer(payload)
 
 
 @app.post("/api/v1/ingest/parse", response_model=IngestResponse)

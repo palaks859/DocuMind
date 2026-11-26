@@ -48,3 +48,48 @@ class EmbedResponse(BaseModel):
     revision: str
     dimension: int
     embeddings: List[List[float]]
+
+
+class RagContextChunk(BaseModel):
+    chunk_id: str
+    document_id: str
+    document_filename: str
+    chunk_index: int
+    page_number: Optional[int] = None
+    page_start: Optional[int] = None
+    page_end: Optional[int] = None
+    content: str
+    similarity_score: float
+
+
+class RagHistoryTurn(BaseModel):
+    role: str
+    content: str
+
+
+class RagAnswerRequest(BaseModel):
+    question: str = Field(..., min_length=1, max_length=4000)
+    chunks: List[RagContextChunk] = Field(default_factory=list)
+    history: List[RagHistoryTurn] = Field(default_factory=list)
+    min_similarity: Optional[float] = Field(None, ge=0.0, le=1.0)
+
+
+class RagCitationOut(BaseModel):
+    chunk_id: str
+    document_id: str
+    document_filename: str
+    page_number: Optional[int] = None
+    page_start: Optional[int] = None
+    page_end: Optional[int] = None
+    passage_reference: str
+    quoted_text: str
+    relevance_score: float
+
+
+class RagAnswerResponse(BaseModel):
+    answer: str
+    found_answer: bool
+    prompt_version: str
+    model_provider: str
+    model_name: str
+    citations: List[RagCitationOut] = Field(default_factory=list)
